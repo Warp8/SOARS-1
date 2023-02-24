@@ -26,10 +26,15 @@ bool firstBoot = true;
 int frame = 0;
 String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC";
 String defaultDataFileName = "data";
-
+String dataPath = "/" + defaultDataFileName + ".csv";
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 Adafruit_SGP30 sgp3;
 SPIClass spi = SPIClass(HSPI); //It's important this is outside of the setup function for some reason
+
+void log(String message) { //Profiling and debugging function
+    Serial.print(millis());
+    Serial.println(message);
+}
 
 void initSensors() {
     if (! sgp3.begin()) { // initialize SGP30
@@ -79,10 +84,8 @@ void initCamera() {
     }
 }
 
-void write(String imagePath, camera_fb_t * image, String dataPath, const char * data) {
-    int time = millis();
+void write(String imagePath, camera_fb_t * image, String data) { 
     //Because the SD Card is on the same SPI bus as the camera, we need to reinitialize the SPI bus
-    //Start the SD Card
     spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SD_CS); 
     if (!SD.begin(SD_CS, spi)) { return; } else { } //Initialize SD Card on SPI bus
     uint8_t cardType = SD.cardType();
@@ -94,14 +97,14 @@ void write(String imagePath, camera_fb_t * image, String dataPath, const char * 
     if (!file) { return; } else { } //If the file doesn't open, return
 
     //Write the image to the file
-    Serial.println("Writing Frame Buffer to file");
+    log("Writing Frame Buffer to file");
     file.write(image->buf, image->len);
     file.close();
-    Serial.println("File written");
+    log("Frame buffer written");
 
     if(SD.exists(dataPath) and (firstBoot == true)) { //Check if the data file already exists and create a new one if it does
         firstBoot = false;
-        Serial.println("Data file already exists, creating a new one");
+        log("Data file already exists, creating a new one");
         int i = 1;
         while (SD.exists("/" + defaultDataFileName + String(i) + ".csv")) {
           i++;
@@ -116,27 +119,27 @@ void write(String imagePath, camera_fb_t * image, String dataPath, const char * 
     File dataFile = SD.open(dataPath, FILE_APPEND);
     if (!dataFile) { return; } else { } //If the file doesn't open, return
     //Write the data to the file
-    Serial.println("Writing Data to file");
-    dataFile.print(data);
+    log("Writing sensor data to file");
+    dataFile.println(data);
     dataFile.close();
-    Serial.println("File written");
+    log("Sensor data written");
 
     //Reset the SD Card pins for the Camera to use.
     pinMode(SPI_MISO, INPUT);
     pinMode(SPI_MOSI, INPUT);
     pinMode(SPI_SCK, INPUT);
-    pinMode(SD_CS, INPUT);
-    Serial.println("SD Card pins reset");
+    pinMode(SD_CS, HIGH); //CS pin must be on high
+    log("SD Card pins reset");
 
     //End the SPI and SD card buses
     SD.end();
     spi.end();
-    Serial.print("Time Taken: "); Serial.println(millis()-time);
+    log("Done writing to SD Card");
 }
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("Starting...");
+    log("Starting...");
     Wire.setPins(I2C_SDA, I2C_SCL);
     Wire.begin();
     delay(5000);
@@ -144,7 +147,7 @@ void setup() {
     initSensors();
     initCamera();
 
-    Serial.println("Initilization Complete");
+    log("Initilization Complete");
 }
 
 void loop() {
@@ -155,11 +158,12 @@ void loop() {
         camera_fb_t * fb = NULL;
         fb = esp_camera_fb_get();
         if (!fb) {
-            Serial.println("Camera capture failed");
+            log("Camera capture failed");
             return;
+        } else {
+            log("Camera capture successful");
         }
-        Serial.println("Camera capture successful");
-        
+
         String imagePath = "/frame" + String(frame) + ".jpg"; //Create the path for the image
         frame++; //Increment the frame counter
     
@@ -173,17 +177,17 @@ void loop() {
 
         String data = "";
         data +=
-            String(millis()/1000) + "," +
+            String(millis()) + "," +
             String(temp.temperature) + "," +
             String(humidity.relative_humidity) + "," +
             String(sgp3.rawH2) + "," +
             String(sgp3.rawEthanol) + "," +
             String(sgp3.eCO2) + "," +
-            String(sgp3.TVOC) + "," + "\n";
+            String(sgp3.TVOC);
 
         String dataPath = "/data.csv"; //Create the path for the data
 
-        write(imagePath, fb, dataPath, data.c_str()); //.c_str() converts the String to a char array
+        write(imagePath, fb, data); //.c_str() converts the String to a char array
         
         esp_camera_fb_return(fb); //Return the frame buffer to the camera
     }
@@ -191,10 +195,10 @@ void loop() {
     if (millis() % 10000 == 0) {
         uint16_t TVOC_base, eCO2_base;
         if (! sgp3.getIAQBaseline(&eCO2_base, &TVOC_base)) {
-            Serial.println("Failed to get baseline readings");
+            log("Failed to get baseline readings");
             return;
+        } else {
+            log("Baseline readings retrieved");
         }
-        Serial.print("****Baseline values: eCO2: 0x"); Serial.print(eCO2_base, HEX);
-        Serial.print(" & TVOC: 0x"); Serial.println(TVOC_base, HEX);
     }
 }
