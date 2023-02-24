@@ -22,89 +22,16 @@
 #define I2C_SDA 26
 #define I2C_SCL 27
 
+bool firstBoot = true;
 int frame = 0;
 String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC";
+String defaultDataFileName = "data";
 
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 Adafruit_SGP30 sgp3;
 SPIClass spi = SPIClass(HSPI); //It's important this is outside of the setup function for some reason
 
-void writeHeader(String path, String header) {
-    //Because the SD Card is on the same SPI bus as the camera, we need to reinitialize the SPI bus
-    //Start the SD Card
-    spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SD_CS); 
-    if (!SD.begin(SD_CS, spi)) { return; } else { } //Initialize SD Card on SPI bus
-    uint8_t cardType = SD.cardType();
-    if(cardType == CARD_NONE){ return; } else { } //Check if SD Card is present
-
-    //Open the image file and write the header if it doesn't exist
-    File file = SD.open(path, FILE_WRITE);
-    file.println(header);
-    file.close();
-
-    //Reset the SD Card pins for the Camera to use.
-    pinMode(SPI_MISO, INPUT);
-    pinMode(SPI_MOSI, INPUT);
-    pinMode(SPI_SCK, INPUT);
-    pinMode(SD_CS, INPUT);
-    Serial.println("SD Card pins reset");
-
-    //End the SPI and SD card buses
-    SD.end();
-    spi.end();
-}
-
-void write(String imagePath, camera_fb_t * image, String dataPath, const char * data) {
-    int time = millis();
-    //Because the SD Card is on the same SPI bus as the camera, we need to reinitialize the SPI bus
-    //Start the SD Card
-    spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SD_CS); 
-    if (!SD.begin(SD_CS, spi)) { return; } else { } //Initialize SD Card on SPI bus
-    uint8_t cardType = SD.cardType();
-    if(cardType == CARD_NONE){ return; } else { } //Check if SD Card is present
-
-    //Open the image file
-    if (SD.exists(imagePath)) { SD.remove(imagePath); } else { } //If the file already exists, delete it
-    File file = SD.open(imagePath, FILE_WRITE);
-    if (!file) { return; } else { } //If the file doesn't open, return
-
-    //Write the image to the file
-    Serial.println("Writing Frame Buffer to file");
-    file.write(image->buf, image->len);
-    file.close();
-    Serial.println("File written");
-
-    //Open the data file
-    File file2 = SD.open(dataPath, FILE_APPEND);
-    if (!file2) { return; } else { } //If the file doesn't open, return
-
-    //Write the data to the file
-    Serial.println("Writing Data to file");
-    file2.print(data);
-    file2.close();
-    Serial.println("File written");
-
-    //Reset the SD Card pins for the Camera to use.
-    pinMode(SPI_MISO, INPUT);
-    pinMode(SPI_MOSI, INPUT);
-    pinMode(SPI_SCK, INPUT);
-    pinMode(SD_CS, INPUT);
-    Serial.println("SD Card pins reset");
-
-    //End the SPI and SD card buses
-    SD.end();
-    spi.end();
-    Serial.print("Time Taken: "); Serial.println(millis()-time);
-}
-
-void setup() {
-    Serial.begin(115200);
-    Wire.setPins(I2C_SDA, I2C_SCL);
-    Wire.begin();
-    while (!Serial) { delay(1); } //waits for serial monitor to be opened, remove on final build
-    delay(5000);
-    Serial.println("Starting...");
-
+void initSensors() {
     if (! sgp3.begin()) { // initialize SGP30
         Serial.println("SGP Sensor not found :(");
         while (1);
@@ -114,7 +41,9 @@ void setup() {
         Serial.println("SHT Sensor not found :(");
         while (1);
     }
-    
+}
+
+void initCamera() {
     //Initialize Camera Pins (AI-Thinker ESP32-CAM Pinout)
     camera_config_t config;
     config.ledc_channel = LEDC_CHANNEL_0;
@@ -148,8 +77,72 @@ void setup() {
         Serial.printf("Camera init failed with error 0x%x", err);
         return;
     }
+}
 
-    writeHeader("/data.csv", header); //Write the header to the data file
+void write(String imagePath, camera_fb_t * image, String dataPath, const char * data) {
+    int time = millis();
+    //Because the SD Card is on the same SPI bus as the camera, we need to reinitialize the SPI bus
+    //Start the SD Card
+    spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SD_CS); 
+    if (!SD.begin(SD_CS, spi)) { return; } else { } //Initialize SD Card on SPI bus
+    uint8_t cardType = SD.cardType();
+    if(cardType == CARD_NONE){ return; } else { } //Check if SD Card is present
+
+    //Open the image file
+    if (SD.exists(imagePath)) { SD.remove(imagePath); } else { } //If the file already exists, delete it
+    File file = SD.open(imagePath, FILE_WRITE);
+    if (!file) { return; } else { } //If the file doesn't open, return
+
+    //Write the image to the file
+    Serial.println("Writing Frame Buffer to file");
+    file.write(image->buf, image->len);
+    file.close();
+    Serial.println("File written");
+
+    if(SD.exists(dataPath) and (firstBoot == true)) { //Check if the data file already exists and create a new one if it does
+        firstBoot = false;
+        Serial.println("Data file already exists, creating a new one");
+        int i = 1;
+        while (SD.exists("/" + defaultDataFileName + String(i) + ".csv")) {
+          i++;
+        }
+        dataPath = "/" + defaultDataFileName + String(i) + ".csv";
+        File dataFile = SD.open(dataPath, FILE_WRITE);
+        if (!dataFile) { return; } else { } //If the file doesn't open, return
+        dataFile.println(header);
+        dataFile.close();
+    }
+
+    File dataFile = SD.open(dataPath, FILE_APPEND);
+    if (!dataFile) { return; } else { } //If the file doesn't open, return
+    //Write the data to the file
+    Serial.println("Writing Data to file");
+    dataFile.print(data);
+    dataFile.close();
+    Serial.println("File written");
+
+    //Reset the SD Card pins for the Camera to use.
+    pinMode(SPI_MISO, INPUT);
+    pinMode(SPI_MOSI, INPUT);
+    pinMode(SPI_SCK, INPUT);
+    pinMode(SD_CS, INPUT);
+    Serial.println("SD Card pins reset");
+
+    //End the SPI and SD card buses
+    SD.end();
+    spi.end();
+    Serial.print("Time Taken: "); Serial.println(millis()-time);
+}
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println("Starting...");
+    Wire.setPins(I2C_SDA, I2C_SCL);
+    Wire.begin();
+    delay(5000);
+
+    initSensors();
+    initCamera();
 
     Serial.println("Initilization Complete");
 }
