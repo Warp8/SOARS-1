@@ -32,8 +32,7 @@ Adafruit_SGP30 sgp3;
 SPIClass spi = SPIClass(HSPI); //It's important this is outside of the setup function for some reason
 
 void log(String message) { //Profiling and debugging function
-    Serial.print(millis());
-    Serial.println(message);
+    Serial.println(String(millis()) + " " + message);
 }
 
 void initSensors() {
@@ -124,25 +123,26 @@ void write(String imagePath, camera_fb_t * image, String data) {
     dataFile.close();
     log("Sensor data written");
 
+    //End the SPI and SD card buses
+    SD.end();
+    spi.end();
+
     //Reset the SD Card pins for the Camera to use.
     pinMode(SPI_MISO, INPUT);
     pinMode(SPI_MOSI, INPUT);
     pinMode(SPI_SCK, INPUT);
-    pinMode(SD_CS, HIGH); //CS pin must be on high
+    pinMode(SD_CS, HIGH); //Set the SD Card CS pin to high to prevent it from interfering with the camera
     log("SD Card pins reset");
 
-    //End the SPI and SD card buses
-    SD.end();
-    spi.end();
     log("Done writing to SD Card");
 }
 
 void setup() {
+    delay(5000);
     Serial.begin(115200);
     log("Starting...");
     Wire.setPins(I2C_SDA, I2C_SCL);
     Wire.begin();
-    delay(5000);
 
     initSensors();
     initCamera();
@@ -151,7 +151,7 @@ void setup() {
 }
 
 void loop() {
-    if (millis() % 2000 == 0) {
+    if (millis() % 1000 == 0) {
         
         //Capture Frame
         
