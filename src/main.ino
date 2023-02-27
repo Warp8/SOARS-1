@@ -4,6 +4,7 @@
 /* --- Headers --- */
 #include <string>
 #include <Wire.h>
+#include <Adafruit_ADXL343.h>
 #include "Adafruit_SGP30.h"
 #include "Adafruit_SHT4x.h"
 #include "esp_camera.h"
@@ -24,10 +25,11 @@
 
 bool firstBoot = true;
 int frameCounter = 0;
-String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC";
+String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z";
 String defaultDataFileName = "data";
 String dataPath = "/" + defaultDataFileName + ".csv";
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
+Adafruit_ADXL343 accel = Adafruit_ADXL343(12345); //ID doesn't matter
 Adafruit_SGP30 sgp3;
 SPIClass spi = SPIClass(HSPI); //It's important this is outside of the setup function for some reason
 
@@ -38,12 +40,19 @@ void log(String message) { //Profiling and debugging function
 void initSensors() {
     if (! sgp3.begin()) { // initialize SGP30
         Serial.println("SGP Sensor not found :(");
-        while (1);
+        while(1);
     }
 
     if (! sht4.begin()) { // initialize SHT4x
         Serial.println("SHT Sensor not found :(");
-        while (1);
+        while(1);
+    }
+
+    if(!accel.begin()) {
+        Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
+        while(1);
+    } else {
+        accel.setRange(ADXL343_RANGE_16_G);
     }
 }
 
@@ -155,11 +164,12 @@ void loop() {
     
         //Measure Sensors
         
-        sensors_event_t humidity, temp;
+        sensors_event_t humidity, temp, event;
         
         sgp3.IAQmeasureRaw();
         sgp3.IAQmeasure();
         sht4.getEvent(&humidity, &temp);
+        accel.getEvent(&event);
 
         String data = "";
         data +=
@@ -169,7 +179,10 @@ void loop() {
             String(sgp3.rawH2) + "," +
             String(sgp3.rawEthanol) + "," +
             String(sgp3.eCO2) + "," +
-            String(sgp3.TVOC);
+            String(sgp3.TVOC) + "," +
+            String(event.acceleration.x) + "," +
+            String(event.acceleration.y) + "," +
+            String(event.acceleration.z);
 
         String dataPath = "/data.csv"; //Create the path for the data
 
