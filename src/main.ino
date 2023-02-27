@@ -23,7 +23,7 @@
 #define I2C_SCL 27
 
 bool firstBoot = true;
-int frame = 0;
+int frameCounter = 0;
 String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC";
 String defaultDataFileName = "data";
 String dataPath = "/" + defaultDataFileName + ".csv";
@@ -184,12 +184,12 @@ void loop() {
             log("Camera capture successful");
         }
 
-        String imagePath = "/frame" + String(frame) + ".jpg"; //Create the path for the image
-        frame++; //Increment the frame counter
+        String imagePath = "/frame" + String(frameCounter) + ".jpg"; //Create the path for the image
+        frameCounter++; //Increment the frame counter
 
-        write(imagePath, fb, data); //.c_str() converts the String to a char array
+        write(imagePath, fb, data);
         
-        esp_camera_fb_return(fb); //Return the frame buffer to the camera
+        esp_camera_fb_return(fb); 
     }
 
     if (millis() % 10000 == 0) {
