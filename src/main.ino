@@ -73,8 +73,8 @@ void initCamera() {
     config.pixel_format = PIXFORMAT_JPEG;
     config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
     config.fb_location = CAMERA_FB_IN_PSRAM;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
+    config.jpeg_quality = 16;
+    config.fb_count = 2;
 
     esp_err_t err = esp_camera_init(&config); //Initialize the camera & store the returned code
     if (err != ESP_OK) {
@@ -152,20 +152,6 @@ void setup() {
 
 void loop() {
     if (millis() % 1000 == 0) {
-        
-        //Capture Frame
-        
-        camera_fb_t * fb = NULL;
-        fb = esp_camera_fb_get();
-        if (!fb) {
-            log("Camera capture failed");
-            return;
-        } else {
-            log("Camera capture successful");
-        }
-
-        String imagePath = "/frame" + String(frame) + ".jpg"; //Create the path for the image
-        frame++; //Increment the frame counter
     
         //Measure Sensors
         
@@ -186,6 +172,20 @@ void loop() {
             String(sgp3.TVOC);
 
         String dataPath = "/data.csv"; //Create the path for the data
+
+        //Capture Frame
+        
+        camera_fb_t * fb = NULL;
+        fb = esp_camera_fb_get();
+        if (!fb) {
+            log("Camera capture failed");
+            return;
+        } else {
+            log("Camera capture successful");
+        }
+
+        String imagePath = "/frame" + String(frame) + ".jpg"; //Create the path for the image
+        frame++; //Increment the frame counter
 
         write(imagePath, fb, data); //.c_str() converts the String to a char array
         
