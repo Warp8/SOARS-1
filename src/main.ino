@@ -155,7 +155,7 @@ void setup() {
 }
 
 void loop() {
-    if (millis() % 1000 == 0) {
+    if (millis() % 150 == 0) {
     
         //Measure Sensors
         
