@@ -2,20 +2,9 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL375.h>
 
-#define ADXL375_SCK 13
-#define ADXL375_MISO 12
-#define ADXL375_MOSI 11
-#define ADXL375_CS 10
-
 /* Assign a unique ID to this sensor at the same time */
 /* Uncomment following line for default Wire bus      */
 Adafruit_ADXL375 accel = Adafruit_ADXL375(12345);
-
-/* Uncomment for software SPI */
-//Adafruit_ADXL375 accel = Adafruit_ADXL375(ADXL375_SCK, ADXL375_MISO, ADXL375_MOSI, ADXL375_CS, 12345);
-
-/* Uncomment for hardware SPI */
-//Adafruit_ADXL375 accel = Adafruit_ADXL375(ADXL375_CS, &SPI, 12345);
 
 void displayDataRate(void)
 {
@@ -80,10 +69,11 @@ void displayDataRate(void)
 
 void setup(void)
 {
+  delay(5000);
+  Serial.begin(115200);
   Wire.setPins(26, 27);
   Wire.begin();
-  Serial.begin(115200);
-  delay(5000);
+  while (!Serial);
   Serial.println("ADXL375 Accelerometer Test"); Serial.println("");
 
   /* Initialise the sensor */

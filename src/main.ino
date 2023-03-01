@@ -4,7 +4,8 @@
 /* --- Headers --- */
 #include <string>
 #include <Wire.h>
-#include <Adafruit_ADXL343.h>
+#include <Adafruit_ADXL375.h>
+#include <Adafruit_Sensor.h>
 #include "Adafruit_SGP30.h"
 #include "Adafruit_SHT4x.h"
 #include "esp_camera.h"
@@ -19,17 +20,13 @@
 #define SPI_SCK 14
 #define SD_CS 5
 
-/* --- I2C Lines for CWV Module --- */
-#define I2C_SDA 26
-#define I2C_SCL 27
-
 bool firstBoot = true;
 int frameCounter = 0;
 String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z";
 String defaultDataFileName = "data";
 String dataPath = "/" + defaultDataFileName + ".csv";
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
-Adafruit_ADXL343 accel = Adafruit_ADXL343(12345); //ID doesn't matter
+Adafruit_ADXL375 accel = Adafruit_ADXL375(12345);
 Adafruit_SGP30 sgp3;
 SPIClass spi = SPIClass(HSPI); //It's important this is outside of the setup function for some reason
 
@@ -48,11 +45,9 @@ void initSensors() {
         while(1);
     }
 
-    if(!accel.begin()) {
-        Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
+    if(! accel.begin()) {
+        Serial.println("Ooops, no ADXL375 detected ... Check your wiring!");
         while(1);
-    } else {
-        accel.setRange(ADXL343_RANGE_16_G);
     }
 }
 
@@ -149,9 +144,9 @@ void write(String imagePath, camera_fb_t * image, String data) {
 void setup() {
     delay(5000);
     Serial.begin(115200);
-    log("Starting...");
-    Wire.setPins(I2C_SDA, I2C_SCL);
+    Wire.setPins(26, 27);
     Wire.begin();
+    log("Starting...");
 
     initSensors();
     initCamera();
