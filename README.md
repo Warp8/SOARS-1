@@ -3,11 +3,11 @@ SOARS - Stockbridge Observatory and Research Satellite
 This code is developed for our satellite and is designed to work in combination with the MaxIQ kit. 
 If you want to replicate our hardware configuration you will need:
 
-A Fat32 format SD card
-A OV2640 Camera sensor
-Adafruit SGP30, SHT40, and ADXL375 sensors
-The SPL-06-007 Altimeter
-And the Zio qwiic connect loudness sensor.
+- A Fat32 format SD card
+- A OV2640 Camera sensor
+- Adafruit SGP30, SHT40, and ADXL375 sensors
+- The SPL-06-007 Altimeter
+- And the Zio qwiic connect loudness sensor.
 
 This is what your hardware configuration shoud look like.
 
