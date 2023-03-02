@@ -14,14 +14,16 @@
 #include "SD.h"
 #include "SPI.h"
 
-String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z, Magnitude";
+String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z, Magnitude, Pressure, Altitude, Noise";
 String defaultDataFileName = "data";
-String defaultImageDiretoryName = "/images/";
+String defaultImageDiretoryName = "/images";
 double localPressure = 1015.3; // Local pressure in hPa
 String dataPath = "/" + defaultDataFileName + ".csv";
 bool firstBoot = true;
 int frameCounter = 0;
 int frameRate = 150; // (Target) milliseconds between frames
+const byte noiseSensorAddress = 0x38; //Zio Qwiic Noise Sensor Address
+uint16_t ADC_VALUE = 0; //Noise Sensor Value
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 Adafruit_ADXL375 accel = Adafruit_ADXL375(12345);
 Adafruit_SGP30 sgp3;
@@ -29,6 +31,22 @@ SPIClass spi = SPIClass(HSPI);
 
 void log(String message) { //Profiling and debugging function
     Serial.println(String(millis()) + " " + message);
+}
+
+uint16_t getNoise() { //tbh I just copied this whole function from the example code
+    Wire.beginTransmission(noiseSensorAddress);
+    Wire.write(0x05); // Command for status
+    Wire.endTransmission(); 
+    Wire.requestFrom(noiseSensorAddress, 2); // Request 1 bytes from slave device noiseSensorAddress    
+    while (Wire.available()) { // slave may send less than requested
+        uint8_t ADC_VALUE_L = Wire.read();  
+        uint8_t ADC_VALUE_H = Wire.read();  
+        ADC_VALUE=ADC_VALUE_H;
+        ADC_VALUE<<=8;
+        ADC_VALUE|=ADC_VALUE_L;
+        return(ADC_VALUE,DEC);
+    }
+    uint16_t x=Wire.read(); 
 }
 
 void initSensors() {
@@ -43,14 +61,20 @@ void initSensors() {
     }
 
     if(! accel.begin()) {
-        Serial.println("Ooops, no ADXL375 detected ... Check your wiring!");
+        Serial.println("No ADXL375 detected :(");
         while(1);
     }
 
     SPL_init(0x77);
     if (get_spl_id() != 16) {
-        log("SPL06-007 not found");
+        log("SPL06-007 not found :(");
         while(1);
+    }
+
+    Wire.beginTransmission(noiseSensorAddress);
+    if (Wire.endTransmission() != 0) {
+        Serial.println("No noise sensor found :(");
+        while (1);
     }
 }
 
@@ -106,7 +130,8 @@ void write(String imagePath, camera_fb_t * image, String data) {
     if(cardType == CARD_NONE){ return; } else { } //Check if SD Card is present
 
     //Open the image file
-    if (SD.exists(imagePath)) { SD.remove(imagePath); } else { } //If the file already exists, delete it
+    if (!SD.exists(defaultImageDiretoryName)) { SD.mkdir(defaultImageDiretoryName); } else { }
+    if (SD.exists(imagePath)) { SD.remove(imagePath); } else { }
     File file = SD.open(imagePath, FILE_WRITE);
     if (!file) { return; } else { } //If the file doesn't open, return
 
@@ -116,6 +141,7 @@ void write(String imagePath, camera_fb_t * image, String data) {
     file.close();
     log("Frame buffer written");
 
+    if (!SD.exists("/data")) { SD.mkdir("/data"); } else { } //Create the data directory if it doesn't exist
     if(SD.exists(dataPath) and (firstBoot == true)) { //Check if the data file already exists and create a new one if it does
         firstBoot = false;
         log("Data file already exists, creating a new one");
@@ -129,6 +155,7 @@ void write(String imagePath, camera_fb_t * image, String data) {
         dataFile.println(header);
         dataFile.close();
     }
+    
 
     File dataFile = SD.open(dataPath, FILE_APPEND);
     if (!dataFile) { return; } else { } //If the file doesn't open, return
@@ -180,7 +207,8 @@ String takeReadings() {
             String(z) + "," +
             String(magnitude) + "," +
             String(get_pressure()) + "," +
-            String(get_altitude(get_pressure(),localPressure));
+            String(get_altitude(get_pressure(),localPressure)) + "," +
+            String(getNoise());
 
         return data;
 }
