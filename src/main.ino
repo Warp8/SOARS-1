@@ -14,21 +14,15 @@
 #include "SD.h"
 #include "SPI.h"
 
-/* --- SD Card/SPI pins --- */
-#define SPI_MISO 12
-#define SPI_MOSI 13
-#define SPI_SCK 14
-#define SD_CS 5
-
 bool firstBoot = true;
 int frameCounter = 0;
-String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z";
+String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z, Magnitude";
 String defaultDataFileName = "data";
 String dataPath = "/" + defaultDataFileName + ".csv";
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 Adafruit_ADXL375 accel = Adafruit_ADXL375(12345);
 Adafruit_SGP30 sgp3;
-SPIClass spi = SPIClass(HSPI); //It's important this is outside of the setup function for some reason
+SPIClass spi = SPIClass(HSPI);
 
 void log(String message) { //Profiling and debugging function
     Serial.println(String(millis()) + " " + message);
@@ -73,12 +67,20 @@ void initCamera() {
     config.pin_pwdn = 32;
     config.pin_reset = -1;
     config.xclk_freq_hz = 20000000;
-    config.frame_size = FRAMESIZE_UXGA;
-    config.pixel_format = PIXFORMAT_JPEG;
-    config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+    config.pixel_format = PIXFORMAT_JPEG; 
+    if(psramFound()){
+      config.frame_size = FRAMESIZE_UXGA; // FRAMESIZE_ + QVGA|CIF|VGA|SVGA|XGA|SXGA|UXGA
+      config.jpeg_quality = 20;
+      config.fb_count = 2;
+      log("PSRAM found");
+    } else {
+      config.frame_size = FRAMESIZE_SVGA;
+      config.jpeg_quality = 12;
+      config.fb_count = 1;
+      log("PSRAM not found");
+    }
+    //config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
     config.fb_location = CAMERA_FB_IN_PSRAM;
-    config.jpeg_quality = 16;
-    config.fb_count = 2;
 
     esp_err_t err = esp_camera_init(&config); //Initialize the camera & store the returned code
     if (err != ESP_OK) {
@@ -89,8 +91,8 @@ void initCamera() {
 
 void write(String imagePath, camera_fb_t * image, String data) { 
     //Because the SD Card is on the same SPI bus as the camera, we need to reinitialize the SPI bus
-    spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SD_CS); 
-    if (!SD.begin(SD_CS, spi)) { return; } else { } //Initialize SD Card on SPI bus
+    spi.begin(14, 12, 13, 5); //SCK, MISO, MOSI, SS on CWV module
+    if (!SD.begin(5, spi)) { return; } else { } //Initialize SD Card on SPI bus
     uint8_t cardType = SD.cardType();
     if(cardType == CARD_NONE){ return; } else { } //Check if SD Card is present
 
@@ -132,13 +134,44 @@ void write(String imagePath, camera_fb_t * image, String data) {
     spi.end();
 
     //Reset the SD Card pins for the Camera to use.
-    pinMode(SPI_MISO, INPUT);
-    pinMode(SPI_MOSI, INPUT);
-    pinMode(SPI_SCK, INPUT);
-    pinMode(SD_CS, HIGH); //Set the SD Card CS pin to high to prevent it from interfering with the camera
+    pinMode(12, INPUT);
+    pinMode(13, INPUT);
+    pinMode(14, INPUT);
+    pinMode(5, HIGH); //Set the SD Card CS pin to high to prevent it from interfering with the camera
     log("SD Card pins reset");
 
     log("Done writing to SD Card");
+}
+
+String takeReadings() {
+        
+        //Measure Sensors
+        
+        sensors_event_t humidity, temp, event;
+        
+        sgp3.IAQmeasureRaw();
+        sgp3.IAQmeasure();
+        sht4.getEvent(&humidity, &temp);
+        accel.getEvent(&event);
+        float x = event.acceleration.x;
+        float y = event.acceleration.y;
+        float z = event.acceleration.z;
+        float magnitude = sqrt(x*x + y*y + z*z);
+
+        String data =
+            String(millis()) + "," +
+            String(temp.temperature) + "," +
+            String(humidity.relative_humidity) + "," +
+            String(sgp3.rawH2) + "," +
+            String(sgp3.rawEthanol) + "," +
+            String(sgp3.eCO2) + "," +
+            String(sgp3.TVOC) + "," +
+            String(x) + "," +
+            String(y) + "," +
+            String(z) + "," +
+            String(magnitude);
+
+        return data;
 }
 
 void setup() {
@@ -156,32 +189,11 @@ void setup() {
 
 void loop() {
     if (millis() % 150 == 0) {
-    
-        //Measure Sensors
-        
-        sensors_event_t humidity, temp, event;
-        
-        sgp3.IAQmeasureRaw();
-        sgp3.IAQmeasure();
-        sht4.getEvent(&humidity, &temp);
-        accel.getEvent(&event);
 
-        String data = "";
-        data +=
-            String(millis()) + "," +
-            String(temp.temperature) + "," +
-            String(humidity.relative_humidity) + "," +
-            String(sgp3.rawH2) + "," +
-            String(sgp3.rawEthanol) + "," +
-            String(sgp3.eCO2) + "," +
-            String(sgp3.TVOC) + "," +
-            String(event.acceleration.x) + "," +
-            String(event.acceleration.y) + "," +
-            String(event.acceleration.z);
+        String data = takeReadings();
 
-        String dataPath = "/data.csv"; //Create the path for the data
-
-        //Capture Frame
+        String imagePath = "/frame" + String(frameCounter) + ".jpg"; //Create the path for the image
+        frameCounter++; //Increment the frame counter
         
         camera_fb_t * fb = NULL;
         fb = esp_camera_fb_get();
@@ -191,9 +203,6 @@ void loop() {
         } else {
             log("Camera capture successful");
         }
-
-        String imagePath = "/frame" + String(frameCounter) + ".jpg"; //Create the path for the image
-        frameCounter++; //Increment the frame counter
 
         write(imagePath, fb, data);
         
