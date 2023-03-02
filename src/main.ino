@@ -2,23 +2,26 @@
 // with the Adafruit sensor library and the ESP32 Camera Library. 
 // You must change the type "sensor_t" in all related adafruit libraries to "adafruit_sensor_t" in order to compile.
 /* --- Headers --- */
-#include <string>
-#include <Wire.h>
-#include <Adafruit_ADXL375.h>
-#include <Adafruit_Sensor.h>
-#include "Adafruit_SGP30.h"
-#include "Adafruit_SHT4x.h"
+#include <SPL06-007.h> // Altitude (you may have to modify the I2C address in the library to 0x77)
+#include <Adafruit_ADXL375.h> // IMU 
+#include "Adafruit_SGP30.h" // Gas
+#include "Adafruit_SHT4x.h" // Temp & Humidity
+#include <Adafruit_Sensor.h> // Needed for Adafruit sensors
 #include "esp_camera.h"
 #include "Arduino.h"
+#include <Wire.h>
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
 
-bool firstBoot = true;
-int frameCounter = 0;
 String header = "Time ,Temperature ,Humidity ,Raw H2 ,Raw Ethanol ,CO2 ,VOC, X, Y, Z, Magnitude";
 String defaultDataFileName = "data";
+String defaultImageDiretoryName = "/images/";
+double localPressure = 1015.3; // Local pressure in hPa
 String dataPath = "/" + defaultDataFileName + ".csv";
+bool firstBoot = true;
+int frameCounter = 0;
+int frameRate = 150; // (Target) milliseconds between frames
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 Adafruit_ADXL375 accel = Adafruit_ADXL375(12345);
 Adafruit_SGP30 sgp3;
@@ -41,6 +44,12 @@ void initSensors() {
 
     if(! accel.begin()) {
         Serial.println("Ooops, no ADXL375 detected ... Check your wiring!");
+        while(1);
+    }
+
+    SPL_init(0x77);
+    if (get_spl_id() != 16) {
+        log("SPL06-007 not found");
         while(1);
     }
 }
@@ -111,10 +120,10 @@ void write(String imagePath, camera_fb_t * image, String data) {
         firstBoot = false;
         log("Data file already exists, creating a new one");
         int i = 1;
-        while (SD.exists("/" + defaultDataFileName + String(i) + ".csv")) {
+        while (SD.exists("/data/" + defaultDataFileName + String(i) + ".csv")) {
           i++;
         }
-        dataPath = "/" + defaultDataFileName + String(i) + ".csv";
+        dataPath = "/data/" + defaultDataFileName + String(i) + ".csv";
         File dataFile = SD.open(dataPath, FILE_WRITE);
         if (!dataFile) { return; } else { } //If the file doesn't open, return
         dataFile.println(header);
@@ -156,7 +165,7 @@ String takeReadings() {
         float x = event.acceleration.x;
         float y = event.acceleration.y;
         float z = event.acceleration.z;
-        float magnitude = sqrt(x*x + y*y + z*z);
+        float magnitude = sqrt(x*x + y*y + z*z); //Absolute acceleration of the sensor
 
         String data =
             String(millis()) + "," +
@@ -169,7 +178,9 @@ String takeReadings() {
             String(x) + "," +
             String(y) + "," +
             String(z) + "," +
-            String(magnitude);
+            String(magnitude) + "," +
+            String(get_pressure()) + "," +
+            String(get_altitude(get_pressure(),localPressure));
 
         return data;
 }
@@ -188,11 +199,11 @@ void setup() {
 }
 
 void loop() {
-    if (millis() % 150 == 0) {
+    if (millis() % frameRate == 0) {
 
         String data = takeReadings();
 
-        String imagePath = "/frame" + String(frameCounter) + ".jpg"; //Create the path for the image
+        String imagePath = defaultImageDiretoryName + "/frame" + String(frameCounter) + ".jpg"; //Create the path for the image
         frameCounter++; //Increment the frame counter
         
         camera_fb_t * fb = NULL;
