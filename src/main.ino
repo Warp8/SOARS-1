@@ -1,6 +1,7 @@
 // NOTE: If you are trying to compile this code there will be a type conflict error 
 // with the Adafruit sensor library and the ESP32 Camera Library. 
 // You must change the type "sensor_t" in all related adafruit libraries to "adafruit_sensor_t" in order to compile.
+// (Use the find and replace function in VScode)
 /* --- Headers --- */
 #include <SPL06-007.h> // Altitude (you may have to modify the I2C address in the library to 0x77)
 #include <Adafruit_ADXL375.h> // IMU 
