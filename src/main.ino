@@ -181,9 +181,6 @@ void write(String imagePath, camera_fb_t * image, String data) {
 }
 
 String takeReadings() {
-        
-        //Measure Sensors
-        
         sensors_event_t humidity, temp, event;
         
         sgp3.IAQmeasureRaw();
