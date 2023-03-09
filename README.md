@@ -1,6 +1,8 @@
 # SOARS-1
 SOARS - Stockbridge Observatory and Research Satellite
+
 Team: Jack Hammerberg & Shay Handshoe
+
 This code is developed for our satellite and is designed to work in combination with the MaxIQ kit. 
 If you want to replicate our hardware configuration you will need:
 
