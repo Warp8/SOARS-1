@@ -1,5 +1,6 @@
 # SOARS-1
 SOARS - Stockbridge Observatory and Research Satellite
+Team: Jack Hammerberg & Shay Handshoe
 This code is developed for our satellite and is designed to work in combination with the MaxIQ kit. 
 If you want to replicate our hardware configuration you will need:
 
@@ -8,6 +9,8 @@ If you want to replicate our hardware configuration you will need:
 - Adafruit SGP30, SHT40, and ADXL375 sensors
 - The SPL-06-007 Altimeter
 - And the Zio Qwiic connect loudness sensor.
+
+This is meant to study the flight of the rocket, gas in the upper atmosphere and record video of the event.
 
 You'll also have to solder and wire the MaxIQ GPIO expansion chip.
 
