@@ -4,15 +4,18 @@ This code is developed for our satellite and is designed to work in combination 
 If you want to replicate our hardware configuration you will need:
 
 - A Fat32 format SD card
-- A OV2640 Camera sensor
+- An OV2640 Camera sensor
 - Adafruit SGP30, SHT40, and ADXL375 sensors
 - The SPL-06-007 Altimeter
-- And the Zio qwiic connect loudness sensor.
+- And the Zio Qwiic connect loudness sensor.
 
 You'll also have to solder and wire the MaxIQ GPIO expansion chip.
 
 This is what your hardware configuration shoud look like.
 
-![IMG_20230302_092925](https://user-images.githubusercontent.com/22381811/222457183-e0a7a618-b7f8-472b-bdaa-a23c321e0c21.jpg)
+![IMG_20230309_074607](https://user-images.githubusercontent.com/22381811/224048804-50c15c5f-3fe9-4aca-bea1-427a61e08cc5.jpg)
+![IMG_20230309_074651](https://user-images.githubusercontent.com/22381811/224048817-7842ffaf-bc43-4368-856f-4d46da78c1e9.jpg)
+![IMG_20230302_092925](https://user-images.githubusercontent.com/22381811/224048824-212e9c99-7d33-4bfe-89b3-bfb9acb57bb7.jpg)
 
-If you're having troublel compiling, look at the comments at the top of the code.
+
+If you're having trouble compiling, look at the comments at the top of the code.
