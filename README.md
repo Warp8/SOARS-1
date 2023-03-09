@@ -17,5 +17,6 @@ This is what your hardware configuration shoud look like.
 ![IMG_20230309_074651](https://user-images.githubusercontent.com/22381811/224048817-7842ffaf-bc43-4368-856f-4d46da78c1e9.jpg)
 ![IMG_20230302_092925](https://user-images.githubusercontent.com/22381811/224048824-212e9c99-7d33-4bfe-89b3-bfb9acb57bb7.jpg)
 
-
+Here's the STL to the expansion board thing I mounted the sensors and camera to. I printed it on my Ender 3 and sliced it with inside tolerences.
+https://www.dropbox.com/s/zui7gxph093zsvh/Expansion%20Board.stl?dl=0
 If you're having trouble compiling, look at the comments at the top of the code.
